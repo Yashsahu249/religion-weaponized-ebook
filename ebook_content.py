@@ -579,7 +579,7 @@ CHAPTERS = [
             ("bullet", "Recovery from Religion Foundation – recoveringfromreligion.org"),
             ("bullet", "Cult Education Institute – culteducation.com"),
             ("bullet", "SNAP (Survivors Network of those Abused by Priests) – snapnetwork.org"),
-            ("bullet", "International Cultic Studies Association – icsa home.com"),
+            ("bullet", "International Cultic Studies Association – icsahome.com"),
             ("bullet", "Open Minds Foundation – openmindsfoundation.org"),
             ("subheading", "Crisis & Support Lines"),
             ("bullet",

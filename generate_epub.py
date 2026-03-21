@@ -221,8 +221,14 @@ def _make_epub_chapter(
 # ──────────────────────────────────────────────
 # Main builder
 # ──────────────────────────────────────────────
-def build_document(output_path: str) -> str:
+def build_document(output_path: str, cover_image_path: str = "") -> str:
     """Build the EPUB and save to *output_path*.
+
+    Args:
+        output_path: Destination filename for the EPUB.
+        cover_image_path: Optional path to a PNG/JPEG cover image.
+            When provided (and the file exists), the image is embedded as the
+            official EPUB cover — required by Amazon KDP, Apple Books, etc.
 
     Returns the absolute path to the generated file.
     """
@@ -252,27 +258,46 @@ def build_document(output_path: str) -> str:
     )
     book.add_item(css_item)
 
-    # ── Cover HTML page ───────────────────────
-    cover_html = (
-        f"<html><head>"
-        f"<title>{_esc(BOOK_METADATA['title'])}</title>"
-        f'<link rel="stylesheet" type="text/css" href="style/main.css"/>'
-        f"</head><body>"
-        f'<h1 class="cover-title">{_esc(BOOK_METADATA["title"].upper())}</h1>'
-        f'<hr class="cover-rule"/>'
-        f'<h2 class="cover-subtitle">{_esc(BOOK_METADATA["subtitle"])}</h2>'
-        f'<hr class="cover-rule"/>'
-        f'<p class="cover-author">by {_esc(BOOK_METADATA["author"])}</p>'
-        f"</body></html>"
-    )
-    cover_item = epub.EpubHtml(
-        title=BOOK_METADATA["title"],
-        file_name="cover.xhtml",
-        lang="en",
-        content=cover_html,
-    )
-    cover_item.add_link(href="style/main.css", rel="stylesheet", type="text/css")
-    book.add_item(cover_item)
+    # ── Cover image (PNG/JPEG) ─────────────────
+    # Embedding the cover image is required by Amazon KDP, Apple Books, and
+    # Google Play Books.  epub.set_cover() stores the image AND auto-generates
+    # a cover.xhtml, so we only add our own cover page when no image is given.
+    has_cover_image = bool(cover_image_path and os.path.isfile(cover_image_path))
+    if has_cover_image:
+        ext = os.path.splitext(cover_image_path)[1].lower()
+        with open(cover_image_path, "rb") as fh:
+            cover_bytes = fh.read()
+        book.set_cover("cover_image" + ext, cover_bytes)
+        print(f"📷  Cover image embedded from {cover_image_path}")
+
+    # ── Cover HTML page (text-only fallback when no image) ────────────────────
+    # When a cover image was provided, epub.set_cover() already added cover.xhtml
+    # to the book, so we must not add another one (that would cause a duplicate).
+    if not has_cover_image:
+        cover_html = (
+            f"<html><head>"
+            f"<title>{_esc(BOOK_METADATA['title'])}</title>"
+            f'<link rel="stylesheet" type="text/css" href="style/main.css"/>'
+            f"</head><body>"
+            f'<h1 class="cover-title">{_esc(BOOK_METADATA["title"].upper())}</h1>'
+            f'<hr class="cover-rule"/>'
+            f'<h2 class="cover-subtitle">{_esc(BOOK_METADATA["subtitle"])}</h2>'
+            f'<hr class="cover-rule"/>'
+            f'<p class="cover-author">by {_esc(BOOK_METADATA["author"])}</p>'
+            f"</body></html>"
+        )
+        cover_item = epub.EpubHtml(
+            title=BOOK_METADATA["title"],
+            file_name="cover.xhtml",
+            lang="en",
+            content=cover_html,
+        )
+        cover_item.add_link(href="style/main.css", rel="stylesheet", type="text/css")
+        book.add_item(cover_item)
+    else:
+        # Retrieve the cover page that set_cover() registered so we can include
+        # it in the spine.
+        cover_item = book.get_item_with_href("cover.xhtml")
 
     # ── Copyright page ────────────────────────
     copyright_html = (
@@ -340,8 +365,16 @@ def main():
         default="religion_weaponized.epub",
         help="Output EPUB filename (default: religion_weaponized.epub)",
     )
+    parser.add_argument(
+        "--cover", "-c",
+        default="",
+        help=(
+            "Path to a PNG/JPEG cover image to embed in the EPUB. "
+            "If omitted a text-based cover page is used instead."
+        ),
+    )
     args = parser.parse_args()
-    build_document(args.output)
+    build_document(args.output, cover_image_path=args.cover)
 
 
 if __name__ == "__main__":
